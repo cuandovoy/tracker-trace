@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\ManageUsers;
+use App\Actions\LoadCompanyDemo;
 use App\Http\Requests\CompanyRequest;
 use App\Models\Company;
 use Illuminate\Http\RedirectResponse;
@@ -80,5 +81,16 @@ class CompanyController extends Controller
         $request->user()->company->update($request->validated());
 
         return back()->with('success', 'Ajustes guardados.');
+    }
+
+    public function loadDemo(Request $request, LoadCompanyDemo $action): RedirectResponse
+    {
+        Gate::authorize('manage-company');
+        $request->validate(['confirmed' => 'accepted']);
+        $loaded = $action->run();
+
+        return redirect()->route('settings')->with('success', $loaded
+            ? 'Cargamos 3 camiones, 3 choferes y 6 viajes de prueba en tu empresa.'
+            : 'Los datos de prueba ya estaban cargados. No se crearon duplicados.');
     }
 }

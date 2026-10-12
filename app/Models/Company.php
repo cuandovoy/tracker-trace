@@ -16,7 +16,7 @@ class Company extends Model
 
     protected function casts(): array
     {
-        return ['active' => 'boolean'];
+        return ['active' => 'boolean', 'demo_loaded_at' => 'datetime'];
     }
 
     public function users(): HasMany

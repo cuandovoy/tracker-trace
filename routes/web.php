@@ -27,10 +27,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/choferes/{driver}/archivo', [DriverController::class, 'archive'])->name('drivers.archive');
     Route::post('/choferes/{driver}/asignacion', [DriverController::class, 'assign'])->name('drivers.assign');
     Route::get('/choferes/{driver}/pdf', [DriverController::class, 'pdf'])->middleware('throttle:20,1')->name('drivers.pdf');
+    Route::get('/viajes/excel', [TripController::class, 'excel'])->middleware('throttle:20,1')->name('trips.excel');
     Route::resource('viajes', TripController::class)->parameters(['viajes' => 'trip'])->except('destroy');
     Route::post('/viajes/{trip}/estado', [TripController::class, 'transition'])->name('trips.transition');
     Route::get('/ajustes', [CompanyController::class, 'settings'])->name('settings');
     Route::put('/ajustes', [CompanyController::class, 'saveSettings']);
+    Route::post('/ajustes/datos-prueba', [CompanyController::class, 'loadDemo'])->middleware('throttle:5,1')->name('settings.demo');
     Route::resource('usuarios', UserController::class)->parameters(['usuarios' => 'member'])->except(['show', 'destroy']);
     Route::post('/usuarios/{member}/invitacion', [UserController::class, 'invite'])->middleware('throttle:5,1')->name('users.invite');
     Route::prefix('admin')->middleware('can:manage-platform')->group(function () {
