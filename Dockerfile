@@ -21,6 +21,7 @@ FROM base AS production
 COPY --from=dependencies --chown=www-data:www-data /var/www/html /var/www/html
 COPY --from=frontend --chown=www-data:www-data /app/public/build /var/www/html/public/build
 COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/fastcgi_params /etc/nginx/app_fastcgi_params
 COPY docker/supervisord.conf /etc/supervisor/conf.d/app.conf
 COPY docker/php-production.ini /usr/local/etc/php/conf.d/production.ini
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/app-entrypoint

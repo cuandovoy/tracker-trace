@@ -94,6 +94,8 @@ Cobertura: permisos, recursos ajenos, relaciones entre empresas, login/recuperac
 
 ## Desplegar en Dokploy
 
+**Guía paso a paso:** [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md). Incluye primer despliegue, variables para copiar, dominio, migraciones, primer superadministrador y actualizaciones. Plantilla de producción: [docker/dokploy.env.example](docker/dokploy.env.example).
+
 1. Crear MySQL 8.4 como servicio separado, con volumen persistente y backups. Crear una base y usuario propios para la aplicación.
 2. Crear una aplicación Dokploy vinculada al repositorio, seleccionando **Dockerfile**, ruta `Dockerfile`, contexto `.`. Puerto HTTP del contenedor: **8080**.
 3. Configurar un dominio HTTPS con Traefik. Mantener el contenedor accesible mediante el proxy interno, sin publicar PHP-FPM ni MySQL a Internet.
@@ -149,7 +151,7 @@ php artisan migrate --force
 php artisan app:superadmin tu-correo@empresa.com --name="Tu nombre"
 ```
 
-Usar una consola interactiva para crear el superadministrador. En Dokploy, el paso de release debe terminar correctamente antes de enviar tráfico; no poner migraciones en el comando de cada réplica. Para una primera instalación se puede iniciar la imagen, ejecutar la migración en su consola y recién después habilitar el dominio.
+Usar una consola interactiva para crear el superadministrador. El paso de release debe terminar correctamente antes de enviar tráfico; no poner migraciones en el comando de cada réplica. **Run Command de Dokploy ocurre después del arranque, no antes de publicar tráfico.** Para una primera instalación, iniciar la imagen sin dominio, ejecutar la migración en su consola y recién después habilitar el dominio. Para actualizaciones con cambios de esquema, seguir el procedimiento de la guía.
 
 Ingresar con el superadministrador, crear la empresa y su administrador, y comprobar la entrega del correo. Si SMTP falla, la empresa y usuario se conservan y aparece una advertencia con posibilidad de reenviar. Los enlaces vencen a los 60 minutos.
 

@@ -14,9 +14,9 @@ services:
       APP_LOCALE: es
       APP_FALLBACK_LOCALE: es
       DB_CONNECTION: mysql
-      DB_HOST: mysql
+      DB_HOST: production-db
       DB_PORT: 3306
-      DB_DATABASE: truck_tracker
+      DB_DATABASE: truck_tracker_smoke
       DB_USERNAME: truck
       DB_PASSWORD: local-truck-password
       SESSION_DRIVER: database
@@ -27,5 +27,18 @@ services:
       MAIL_MAILER: log
       LOG_CHANNEL: stderr
     depends_on:
-      mysql:
+      production-db:
         condition: service_healthy
+  production-db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: truck_tracker_smoke
+      MYSQL_USER: truck
+      MYSQL_PASSWORD: local-truck-password
+      MYSQL_ROOT_PASSWORD: local-smoke-root-password
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-plocal-smoke-root-password"]
+      interval: 3s
+      retries: 40

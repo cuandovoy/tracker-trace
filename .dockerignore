@@ -18,3 +18,11 @@ bootstrap/cache/*.php
 output
 playwright-report
 test-results
+auth.json
+.mcp.json
+.playwright-cli
+.phpunit.result.cache
+.vscode
+tests
+database/*.sqlite*
+storage/*.key
