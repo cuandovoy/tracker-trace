@@ -1,0 +1,2 @@
+# Sistema visual
+Interfaz operativa que conserva la identidad de la referencia Lovable. Superficies claras #ecebe4 y #fcfbf7, verde petróleo #16343b, acento naranja oscuro #bc470d para contraste y verde #237a52 para éxito. Texto #161a20 y secundario #5c626b. Barlow para lectura, Barlow Semi Condensed para títulos, alojadas localmente. Radio 12px, separación base 4px, controles mínimo 44px, foco visible. Sidebar desktop, navegación inferior móvil. Tablas semánticas en desktop y tarjetas de registros en móvil. Sin ilustraciones decorativas. Datos y acciones son la prioridad.
