@@ -1,12 +1,14 @@
 import { Link, useForm } from '@inertiajs/react';
 import { ArrowRight, Check, Play } from 'lucide-react';
-import { Layout, Back, Badge, Details, Section } from '../components/ui';
-import { type Trip, date, number, statuses } from '../types';
+import { Layout, Back, Badge, Details, Section, AddLink, Empty } from '../components/ui';
+import { type Trip, date, number, statuses, expenseCategories, type TripExpense } from '../types';
 export default function TripDetail({
   trip: t,
   events,
+  expenseTotals,
 }: {
   trip: Trip;
+  expenseTotals: { currency: string; total: string }[];
   events: {
     id: number;
     action: string;
@@ -65,6 +67,7 @@ export default function TripDetail({
               label: 'Chofer',
               value: <Link href={`/choferes/${t.driver_id}`}>{t.driver.name}</Link>,
             },
+            { label: 'Cliente', value: t.customer_name || 'Sin cliente asociado' },
             { label: 'Carga', value: `${t.cargo} · ${number(t.tons)} t` },
             { label: 'Distancia prevista', value: `${number(t.planned_km)} km` },
             {
@@ -146,6 +149,54 @@ export default function TripDetail({
           </div>
         </Section>
       )}
+      <Section
+        title="Gastos del viaje"
+        actions={<AddLink href={`/viajes/${t.id}/gastos/create`}>Registrar gasto</AddLink>}
+      >
+        <p className="report-note">
+          Podés registrar gastos incluso después de la entrega. Los totales se muestran por moneda,
+          sin conversión.
+        </p>
+        {!!expenseTotals.length && (
+          <div className="record-panel">
+            <Details
+              items={expenseTotals.map((total) => ({
+                label: `Total ${total.currency}`,
+                value: new Intl.NumberFormat('es-UY', {
+                  style: 'currency',
+                  currency: total.currency,
+                }).format(Number(total.total)),
+              }))}
+            />
+          </div>
+        )}
+        {t.expenses?.length ? (
+          <div className="history-list">
+            {t.expenses.map((expense) => (
+              <div key={expense.id}>
+                <div>
+                  <strong>{expense.description}</strong>
+                  <p>
+                    {date(expense.date)} · {expenseCategories[expense.category]} ·{' '}
+                    {expense.currency} {number(expense.amount)}
+                  </p>
+                </div>
+                <div className="actions">
+                  <Link className="btn quiet" href={`/viajes/${t.id}/gastos/${expense.id}/edit`}>
+                    Editar
+                  </Link>
+                  <DeleteExpense tripId={t.id} expense={expense} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty
+            title="Todavía no hay gastos"
+            text="Registrá combustible, peajes, viáticos y otros costos de este viaje."
+          />
+        )}
+      </Section>
       <Section title="Actividad">
         <ol className="activity">
           {events.map((e) => (
@@ -159,7 +210,13 @@ export default function TripDetail({
                       ? 'Datos actualizados'
                       : e.action === 'estado_viaje'
                         ? `Estado: ${statuses[e.data.to as keyof typeof statuses] ?? e.data.to}`
-                        : e.action}
+                        : ((
+                            {
+                              gasto_creado: 'Gasto registrado',
+                              gasto_editado: 'Gasto actualizado',
+                              gasto_eliminado: 'Gasto eliminado',
+                            } as Record<string, string>
+                          )[e.action] ?? e.action)}
                 </strong>
                 <p>
                   {e.user.name} · {date(e.created_at)}
@@ -170,5 +227,25 @@ export default function TripDetail({
         </ol>
       </Section>
     </Layout>
+  );
+}
+
+function DeleteExpense({ tripId, expense }: { tripId: number; expense: TripExpense }) {
+  const form = useForm({});
+  return (
+    <button
+      className="btn danger"
+      disabled={form.processing}
+      onClick={() => {
+        if (
+          window.confirm(
+            `¿Eliminar el gasto «${expense.description}»? La operación quedará registrada.`,
+          )
+        )
+          form.delete(`/viajes/${tripId}/gastos/${expense.id}`, { preserveScroll: true });
+      }}
+    >
+      {form.processing ? 'Eliminando…' : 'Eliminar'}
+    </button>
   );
 }

@@ -2,7 +2,9 @@
 
 namespace App\Actions;
 
+use App\Models\Customer;
 use App\Models\Driver;
+use App\Models\Location;
 use App\Models\Trip;
 use App\Models\Truck;
 use App\Support\Audit;
@@ -27,6 +29,18 @@ class ManageTrip
             Driver::whereNull('archived_at')->findOrFail($data['driver_id']);
             $this->require((float) $data['tons'] <= (float) $truck->capacity_tons, 'La carga supera la capacidad del camión.');
             $before = $trip?->getAttributes();
+            if (array_key_exists('customer_id', $data)) {
+                $customerId = $data['customer_id'] ?: null;
+                if (! $trip || (int) $trip->customer_id !== (int) $customerId) {
+                    $data['customer_name'] = $customerId ? Customer::findOrFail($customerId)->name : null;
+                }
+            }
+            foreach (['origin', 'destination'] as $field) {
+                $key = $field.'_location_id';
+                if (! empty($data[$key]) && (! $trip || (int) $trip->$key !== (int) $data[$key] || empty($data[$field]))) {
+                    $data[$field] = Location::findOrFail($data[$key])->address;
+                }
+            }
             unset($data['historical']);
             if (! $historical) {
                 unset($data['actual_km']);

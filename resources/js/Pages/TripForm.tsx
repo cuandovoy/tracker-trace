@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Layout, Editor, Back, type Field } from '../components/ui';
 import type { Trip, Shared } from '../types';
 export default function TripForm({
@@ -6,11 +6,15 @@ export default function TripForm({
   trucks,
   drivers,
   today,
+  customers,
+  locations,
 }: {
   trip: Trip | null;
   trucks: { id: number; plate: string; capacity_tons: string }[];
   drivers: { id: number; name: string }[];
   today: string;
+  customers: { id: number; name: string }[];
+  locations: { id: number; name: string; address: string; customer_id: number | null }[];
 }) {
   const isAdmin = usePage<Shared>().props.auth.user?.role === 'admin';
   const cancel = t ? `/viajes/${t.id}` : '/viajes';
@@ -31,9 +35,26 @@ export default function TripForm({
       required: true,
       options: drivers.map((d) => ({ value: String(d.id), label: d.name })),
     },
-    { name: 'cargo', label: 'Tipo de carga', required: true },
+    {
+      name: 'customer_id',
+      label: 'Cliente (opcional)',
+      options: customers.map((c) => ({ value: String(c.id), label: c.name })),
+    },
+    {
+      name: 'origin_location_id',
+      label: 'Lugar de carga guardado (opcional)',
+      options: locations.map((l) => ({ value: String(l.id), label: `${l.name} · ${l.address}` })),
+      hint: 'Al seleccionar se completa el origen.',
+    },
+    {
+      name: 'destination_location_id',
+      label: 'Lugar de descarga guardado (opcional)',
+      options: locations.map((l) => ({ value: String(l.id), label: `${l.name} · ${l.address}` })),
+      hint: 'Al seleccionar se completa el destino.',
+    },
     { name: 'origin', label: 'Origen', required: true },
     { name: 'destination', label: 'Destino', required: true },
+    { name: 'cargo', label: 'Tipo de carga', required: true },
     {
       name: 'tons',
       label: 'Carga (toneladas)',
@@ -82,13 +103,30 @@ export default function TripForm({
           Necesitás al menos un camión y un chofer activos para crear un viaje.
         </div>
       )}
+      <p className="report-note">
+        <Link href="/clientes">Administrar clientes</Link> ·{' '}
+        <Link href="/destinos">Administrar lugares frecuentes</Link>
+      </p>
       <Editor
+        onFieldChange={(name, value) => {
+          const field =
+            name === 'origin_location_id'
+              ? 'origin'
+              : name === 'destination_location_id'
+                ? 'destination'
+                : null;
+          const location = locations.find((l) => String(l.id) === value);
+          return field && location ? { [field]: location.address } : {};
+        }}
         fields={fields}
         url={t ? `/viajes/${t.id}` : '/viajes'}
         method={t ? 'put' : 'post'}
         cancel={cancel}
         submit={t ? 'Guardar cambios' : 'Crear viaje'}
         initial={{
+          customer_id: String(t?.customer_id ?? ''),
+          origin_location_id: String(t?.origin_location_id ?? ''),
+          destination_location_id: String(t?.destination_location_id ?? ''),
           date: t?.date ?? today,
           truck_id: String(t?.truck_id ?? ''),
           driver_id: String(t?.driver_id ?? ''),

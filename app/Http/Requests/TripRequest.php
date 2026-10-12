@@ -17,9 +17,13 @@ class TripRequest extends FormRequest
     {
         $company = $this->user()->company_id;
 
-        return ['truck_id' => ['required', 'integer', Rule::exists('trucks', 'id')->where('company_id', $company)->whereNull('archived_at')],
+        return [
+            'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')->where('company_id', $company)],
+            'origin_location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $company)],
+            'destination_location_id' => ['nullable', 'integer', Rule::exists('locations', 'id')->where('company_id', $company)],
+            'truck_id' => ['required', 'integer', Rule::exists('trucks', 'id')->where('company_id', $company)->whereNull('archived_at')],
             'driver_id' => ['required', 'integer', Rule::exists('drivers', 'id')->where('company_id', $company)->whereNull('archived_at')],
-            'date' => 'required|date_format:Y-m-d', 'origin' => 'required|string|max:180', 'destination' => 'required|string|max:180',
+            'date' => 'required|date_format:Y-m-d', 'origin' => 'required_without:origin_location_id|nullable|string|max:180', 'destination' => 'required_without:destination_location_id|nullable|string|max:180',
             'cargo' => 'required|string|max:180', 'tons' => 'required|numeric|min:0|max:9999', 'planned_km' => 'required|numeric|min:0|max:9999999',
             'notes' => 'nullable|string|max:5000', 'historical' => 'sometimes|boolean',
             'actual_km' => 'nullable|required_if:historical,true|numeric|min:0|max:9999999'];

@@ -6,11 +6,13 @@ export default function Trips({
   filters,
   trucks,
   drivers,
+  customers,
 }: {
   trips: PageData<Trip>;
   totals: Totals;
   filters: Filters;
   trucks: { id: number; plate: string }[];
+  customers: { id: number; name: string }[];
   drivers: { id: number; name: string }[];
 }) {
   return (
@@ -25,6 +27,11 @@ export default function Trips({
         period
         statusOptions={tripOptions}
         extra={[
+          {
+            name: 'customer_id',
+            label: 'Todos los clientes',
+            options: customers.map((c) => ({ value: String(c.id), label: c.name })),
+          },
           {
             name: 'truck_id',
             label: 'Todos los camiones',

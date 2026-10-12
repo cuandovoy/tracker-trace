@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\TripController;
+use App\Http\Controllers\TripExpenseController;
 use App\Http\Controllers\TruckController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +30,18 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/choferes/{driver}/asignacion', [DriverController::class, 'assign'])->name('drivers.assign');
     Route::get('/choferes/{driver}/pdf', [DriverController::class, 'pdf'])->middleware('throttle:20,1')->name('drivers.pdf');
     Route::get('/viajes/excel', [TripController::class, 'excel'])->middleware('throttle:20,1')->name('trips.excel');
+    foreach (['clientes', 'destinos'] as $kind) {
+        Route::get("/$kind", [DirectoryController::class, 'index'])->defaults('kind', $kind)->name($kind.'.index');
+        Route::get("/$kind/create", [DirectoryController::class, 'create'])->defaults('kind', $kind)->name($kind.'.create');
+        Route::post("/$kind", [DirectoryController::class, 'store'])->defaults('kind', $kind);
+        Route::get("/$kind/{record}/edit", [DirectoryController::class, 'edit'])->defaults('kind', $kind)->whereNumber('record');
+        Route::put("/$kind/{record}", [DirectoryController::class, 'update'])->defaults('kind', $kind)->whereNumber('record');
+    }
+    Route::get('/viajes/{trip}/gastos/create', [TripExpenseController::class, 'create']);
+    Route::post('/viajes/{trip}/gastos', [TripExpenseController::class, 'store']);
+    Route::get('/viajes/{trip}/gastos/{expense}/edit', [TripExpenseController::class, 'edit']);
+    Route::put('/viajes/{trip}/gastos/{expense}', [TripExpenseController::class, 'update']);
+    Route::delete('/viajes/{trip}/gastos/{expense}', [TripExpenseController::class, 'destroy']);
     Route::resource('viajes', TripController::class)->parameters(['viajes' => 'trip'])->except('destroy');
     Route::post('/viajes/{trip}/estado', [TripController::class, 'transition'])->name('trips.transition');
     Route::get('/ajustes', [CompanyController::class, 'settings'])->name('settings');

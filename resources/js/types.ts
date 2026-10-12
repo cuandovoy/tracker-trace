@@ -58,6 +58,11 @@ export type Assignment = {
 };
 export type TripStatus = 'programado' | 'en_viaje' | 'completado' | 'anulado';
 export type Trip = {
+  customer_id?: number | null;
+  customer_name?: string | null;
+  origin_location_id?: number | null;
+  destination_location_id?: number | null;
+  expenses?: TripExpense[];
   id: number;
   truck_id: number;
   driver_id: number;
@@ -118,3 +123,29 @@ export const truckStatus = (t: Truck) =>
       : t.maintenance
         ? 'Mantenimiento'
         : 'Disponible';
+
+export type DirectoryRecord = {
+  id: number;
+  name: string;
+  tax_id?: string | null;
+  email?: string | null;
+  address: string | null;
+  contact_name: string | null;
+  phone: string | null;
+  notes: string | null;
+  customer_id?: number | null;
+};
+export type TripExpense = {
+  id: number;
+  date: string;
+  category: string;
+  description: string;
+  amount: string;
+  currency: 'UYU' | 'USD';
+};
+export const expenseCategories: Record<string, string> = {
+  combustible: 'Combustible',
+  peajes: 'Peajes',
+  viaticos: 'Viáticos',
+  otros: 'Otros',
+};

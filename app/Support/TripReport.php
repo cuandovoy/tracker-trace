@@ -15,6 +15,7 @@ class TripReport
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('date', '>=', $v))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('date', '<=', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['customer_id'] ?? null, fn ($q, $v) => $q->where('customer_id', $v))
             ->when($filters['truck_id'] ?? null, fn ($q, $v) => $q->where('truck_id', $v))
             ->when($filters['driver_id'] ?? null, fn ($q, $v) => $q->where('driver_id', $v))
             ->when($filters['q'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q->where('origin', 'like', "%$v%")->orWhere('destination', 'like', "%$v%")->orWhere('cargo', 'like', "%$v%")));

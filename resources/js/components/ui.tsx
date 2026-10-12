@@ -38,7 +38,8 @@ export function Layout({
   children: ReactNode;
 }) {
   const { auth, flash, errors } = usePage<Shared>().props;
-  const path = usePage().url.split('?')[0];
+  const currentPath = usePage().url.split('?')[0];
+  const path = currentPath.startsWith('/destinos') ? '/clientes' : currentPath;
   const nav =
     auth.user?.role === 'superadmin'
       ? [{ href: '/admin/empresas', label: 'Empresas', icon: Building2 }]
@@ -46,6 +47,7 @@ export function Layout({
           { href: '/camiones', label: 'Flota', icon: TruckIcon },
           { href: '/choferes', label: 'Choferes', icon: Users },
           { href: '/viajes', label: 'Viajes', icon: Route },
+          { href: '/clientes', label: 'Clientes', icon: Building2 },
           ...(auth.user?.role === 'admin'
             ? [
                 { href: '/usuarios', label: 'Usuarios', icon: UserCog },
@@ -268,7 +270,8 @@ export function FilterBar({
   extra?: { name: string; label: string; options: Option[] }[];
   archive?: boolean;
 }) {
-  const path = usePage().url.split('?')[0];
+  const currentPath = usePage().url.split('?')[0];
+  const path = currentPath.startsWith('/destinos') ? '/clientes' : currentPath;
   const [busy, setBusy] = useState(false);
   const { errors } = usePage<Shared>().props;
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -460,6 +463,7 @@ export function Editor({
   submit = 'Guardar cambios',
   cancel,
   children,
+  onFieldChange,
 }: {
   url: string;
   method?: 'post' | 'put';
@@ -468,6 +472,7 @@ export function Editor({
   submit?: string;
   cancel: string;
   children?: ReactNode;
+  onFieldChange?: (name: string, value: string) => Record<string, string>;
 }) {
   const form = useForm(initial);
   function save(e: FormEvent) {
@@ -502,7 +507,13 @@ export function Editor({
                       id={f.name}
                       name={f.name}
                       value={String(form.data[f.name] ?? '')}
-                      onChange={(e) => form.setData(f.name, e.target.value)}
+                      onChange={(e) =>
+                        form.setData({
+                          ...form.data,
+                          [f.name]: e.target.value,
+                          ...onFieldChange?.(f.name, e.target.value),
+                        })
+                      }
                       required={f.required}
                       aria-invalid={!!form.errors[f.name]}
                       aria-describedby={form.errors[f.name] ? `${f.name}-error` : undefined}
@@ -519,7 +530,13 @@ export function Editor({
                       id={f.name}
                       name={f.name}
                       value={String(form.data[f.name] ?? '')}
-                      onChange={(e) => form.setData(f.name, e.target.value)}
+                      onChange={(e) =>
+                        form.setData({
+                          ...form.data,
+                          [f.name]: e.target.value,
+                          ...onFieldChange?.(f.name, e.target.value),
+                        })
+                      }
                       rows={4}
                       aria-invalid={!!form.errors[f.name]}
                     />
@@ -529,7 +546,13 @@ export function Editor({
                       name={f.name}
                       type={f.type ?? 'text'}
                       value={String(form.data[f.name] ?? '')}
-                      onChange={(e) => form.setData(f.name, e.target.value)}
+                      onChange={(e) =>
+                        form.setData({
+                          ...form.data,
+                          [f.name]: e.target.value,
+                          ...onFieldChange?.(f.name, e.target.value),
+                        })
+                      }
                       required={f.required}
                       min={f.min}
                       max={f.max}
