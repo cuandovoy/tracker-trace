@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
-import { Layout, AddLink, FilterBar, Pagination, Empty, Badge } from '../components/ui';
+import { Layout, AddLink, FilterBar, Pagination, Empty } from '../components/ui';
 import { type Driver, type PageData, type Filters } from '../types';
 export default function Drivers({
   drivers,
@@ -36,7 +36,6 @@ export default function Drivers({
                   <span>{d.current_assignment?.truck.plate ?? 'Sin camión asignado'}</span>
                 </div>
                 <div className="driver-card-end">
-                  {d.current_assignment?.principal && <Badge tone="completado">Titular</Badge>}
                   <ArrowRight size={18} />
                 </div>
               </Link>

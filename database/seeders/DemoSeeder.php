@@ -36,7 +36,7 @@ class DemoSeeder extends Seeder
                 foreach ($units as $i => [$plate,$brand,$model,$year,$capacity]) {
                     $truck = Truck::create(['plate' => $plate, 'brand' => $brand, 'model' => $model, 'year' => $year, 'capacity_tons' => $capacity, 'odometer' => 98450 + $i * 62300, 'fuel' => 'diesel', 'maintenance' => $i === 3, 'last_service' => now()->subMonths(2)->toDateString(), 'next_service' => now()->addMonth()->toDateString()]);
                     $driver = Driver::create(['name' => $names[$i], 'license' => 'DEMO-'.($i + 1), 'category' => 'Profesional', 'phone' => '099 000 00'.$i, 'hired_on' => '2020-03-01']);
-                    app(ManageAssignment::class)->assign($driver, $truck->id, true);
+                    app(ManageAssignment::class)->assign($driver, $truck->id);
                     $data = ['truck_id' => $truck->id, 'driver_id' => $driver->id, 'date' => now()->subDays($i + 1)->toDateString(), 'origin' => 'Montevideo', 'destination' => ['Rivera', 'Colonia', 'Fray Bentos', 'Minas', 'Salto', 'Maldonado'][$i], 'cargo' => ['Carga general', 'Lácteos', 'Celulosa', 'Cemento', 'Granos', 'Bebidas'][$i], 'tons' => 20, 'planned_km' => 112 + $i * 65, 'notes' => 'Datos de demostración.'];
                     app(ManageTrip::class)->save([...$data, 'historical' => true, 'actual_km' => 120 + $i * 65]);
                     if ($i !== 3) {

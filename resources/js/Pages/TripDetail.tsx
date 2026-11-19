@@ -1,13 +1,22 @@
 import { Link, useForm } from '@inertiajs/react';
 import { ArrowRight, Check, Play } from 'lucide-react';
-import { Layout, Back, Badge, Details, Section, AddLink, Empty } from '../components/ui';
-import { type Trip, date, number, statuses, expenseCategories, type TripExpense } from '../types';
+import { Layout, Back, Badge, Details, Section, AddLink, Empty, Editor } from '../components/ui';
+import {
+  type Trip,
+  date,
+  number,
+  statuses,
+  expenseCategoryLabels,
+  type TripExpense,
+} from '../types';
 export default function TripDetail({
   trip: t,
   events,
   expenseTotals,
+  commercial,
 }: {
   trip: Trip;
+  commercial: { viaticos_amount: string };
   expenseTotals: { currency: string; total: string }[];
   events: {
     id: number;
@@ -73,6 +82,15 @@ export default function TripDetail({
             {
               label: 'Distancia realizada',
               value: t.actual_km !== null ? `${number(t.actual_km)} km` : 'Pendiente',
+            },
+            {
+              label: 'Facturado',
+              value: t.value_amount !== null ? `UYU ${number(t.value_amount)}` : 'Sin facturar',
+            },
+            { label: 'Cobrado', value: t.collected ? 'Sí' : 'No' },
+            {
+              label: 'Viáticos',
+              value: `${t.viaticos_qty} · UYU ${commercial.viaticos_amount}`,
             },
             { label: 'Observaciones', value: t.notes || 'Sin observaciones' },
           ]}
@@ -149,6 +167,40 @@ export default function TripDetail({
           </div>
         </Section>
       )}
+      <Section title="Datos comerciales">
+        <p className="report-note">
+          Podés actualizar lo facturado, el cobro y los viáticos en cualquier estado del viaje.
+        </p>
+        <Editor
+          key={`${t.value_amount}-${t.collected}-${t.viaticos_qty}`}
+          fields={[
+            {
+              name: 'value_amount',
+              label: 'Facturado (UYU)',
+              type: 'number',
+              min: 0,
+              step: '0.01',
+            },
+            {
+              name: 'viaticos_qty',
+              label: 'Viáticos (cantidad)',
+              type: 'number',
+              min: 0,
+              step: '1',
+              required: true,
+            },
+            { name: 'collected', label: 'Cobrado', type: 'checkbox', wide: true },
+          ]}
+          url={`/viajes/${t.id}/comercial`}
+          method="put"
+          cancel={`/viajes/${t.id}`}
+          initial={{
+            value_amount: t.value_amount ?? '',
+            collected: t.collected,
+            viaticos_qty: String(t.viaticos_qty),
+          }}
+        />
+      </Section>
       <Section
         title="Gastos del viaje"
         actions={<AddLink href={`/viajes/${t.id}/gastos/create`}>Registrar gasto</AddLink>}
@@ -177,7 +229,8 @@ export default function TripDetail({
                 <div>
                   <strong>{expense.description}</strong>
                   <p>
-                    {date(expense.date)} · {expenseCategories[expense.category]} ·{' '}
+                    {date(expense.date)} ·{' '}
+                    {expenseCategoryLabels[expense.category] ?? expense.category} ·{' '}
                     {expense.currency} {number(expense.amount)}
                   </p>
                 </div>
@@ -193,7 +246,7 @@ export default function TripDetail({
         ) : (
           <Empty
             title="Todavía no hay gastos"
-            text="Registrá combustible, peajes, viáticos y otros costos de este viaje."
+            text="Registrá combustible, peajes y otros costos de este viaje."
           />
         )}
       </Section>
@@ -212,6 +265,7 @@ export default function TripDetail({
                         ? `Estado: ${statuses[e.data.to as keyof typeof statuses] ?? e.data.to}`
                         : ((
                             {
+                              viaje_comercial: 'Datos comerciales actualizados',
                               gasto_creado: 'Gasto registrado',
                               gasto_editado: 'Gasto actualizado',
                               gasto_eliminado: 'Gasto eliminado',

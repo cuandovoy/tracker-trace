@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Truck extends Model
 {
@@ -29,8 +30,8 @@ class Truck extends Model
         return $this->hasMany(Assignment::class);
     }
 
-    public function currentAssignments(): HasMany
+    public function currentAssignment(): HasOne
     {
-        return $this->assignments()->whereNull('ended_at');
+        return $this->hasOne(Assignment::class)->whereNull('ended_at');
     }
 }

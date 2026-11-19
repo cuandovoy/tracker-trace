@@ -10,7 +10,12 @@ export default function TripForm({
   locations,
 }: {
   trip: Trip | null;
-  trucks: { id: number; plate: string; capacity_tons: string }[];
+  trucks: {
+    id: number;
+    plate: string;
+    capacity_tons: string;
+    current_assignment?: { driver_id: number } | null;
+  }[];
   drivers: { id: number; name: string }[];
   today: string;
   customers: { id: number; name: string }[];
@@ -32,7 +37,7 @@ export default function TripForm({
     {
       name: 'driver_id',
       label: 'Chofer',
-      required: true,
+      required: !trucks.some((c) => c.current_assignment),
       options: drivers.map((d) => ({ value: String(d.id), label: d.name })),
     },
     {
@@ -71,6 +76,22 @@ export default function TripForm({
       step: '0.1',
       required: true,
     },
+    {
+      name: 'value_amount',
+      label: 'Facturado (UYU)',
+      type: 'number',
+      min: 0,
+      step: '0.01',
+    },
+    {
+      name: 'viaticos_qty',
+      label: 'Viáticos (cantidad)',
+      type: 'number',
+      min: 0,
+      step: '1',
+      required: true,
+    },
+    { name: 'collected', label: 'Cobrado', type: 'checkbox', wide: true },
     { name: 'notes', label: 'Observaciones', type: 'textarea', wide: true },
     ...(!t && isAdmin
       ? [
@@ -109,6 +130,11 @@ export default function TripForm({
       </p>
       <Editor
         onFieldChange={(name, value) => {
+          if (name === 'truck_id') {
+            const driverId = trucks.find((c) => String(c.id) === value)?.current_assignment
+              ?.driver_id;
+            return driverId ? { driver_id: String(driverId) } : {};
+          }
           const field =
             name === 'origin_location_id'
               ? 'origin'
@@ -136,6 +162,9 @@ export default function TripForm({
           tons: t?.tons ?? '',
           planned_km: t?.planned_km ?? '',
           notes: t?.notes ?? '',
+          value_amount: t?.value_amount ?? '',
+          collected: t?.collected ?? false,
+          viaticos_qty: String(t?.viaticos_qty ?? 0),
           historical: false,
           actual_km: '',
         }}

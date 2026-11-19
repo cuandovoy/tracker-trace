@@ -10,12 +10,7 @@ class Assignment extends Model
 {
     use BelongsToCompany;
 
-    protected $fillable = ['truck_id', 'driver_id', 'principal', 'started_at', 'ended_at', 'created_by', 'ended_by'];
-
-    protected function casts(): array
-    {
-        return ['principal' => 'boolean'];
-    }
+    protected $fillable = ['truck_id', 'driver_id', 'started_at', 'ended_at', 'created_by', 'ended_by'];
 
     public function truck(): BelongsTo
     {

@@ -54,7 +54,7 @@ class LoadCompanyDemo
                     'category' => 'Profesional', 'phone' => null,
                     'hired_on' => $today->copy()->subYear()->toDateString(),
                 ]);
-                $this->assignments->assign($driver, $truck->id, true);
+                $this->assignments->assign($driver, $truck->id);
                 $data = [
                     'truck_id' => $truck->id, 'driver_id' => $driver->id,
                     'origin' => 'Montevideo', 'destination' => $destination,

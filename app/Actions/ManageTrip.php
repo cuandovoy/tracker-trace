@@ -26,6 +26,10 @@ class ManageTrip
                 $this->require($data['date'] <= now(auth()->user()->company->timezone)->toDateString(), 'La fecha histórica no puede ser futura.');
             }
             $truck = Truck::whereNull('archived_at')->findOrFail($data['truck_id']);
+            $data['driver_id'] ??= $trip?->driver_id ?? $truck->currentAssignment?->driver_id;
+            if (empty($data['driver_id'])) {
+                throw ValidationException::withMessages(['driver_id' => 'Seleccioná un chofer o asigná uno al camión.']);
+            }
             Driver::whereNull('archived_at')->findOrFail($data['driver_id']);
             $this->require((float) $data['tons'] <= (float) $truck->capacity_tons, 'La carga supera la capacidad del camión.');
             $before = $trip?->getAttributes();
@@ -53,6 +57,20 @@ class ManageTrip
             Audit::record($trip, $before ? 'viaje_editado' : 'viaje_creado', ['before' => $before, 'after' => $trip->getAttributes()]);
 
             return $trip;
+        });
+    }
+
+    /**
+     * @param  array{value_amount?: ?string, collected?: bool, viaticos_qty?: int}  $data
+     */
+    public function updateCommercial(Trip $trip, array $data): void
+    {
+        app(CompanyTransaction::class)->run(function () use ($trip, $data) {
+            $trip->refresh();
+            $keys = ['value_amount', 'collected', 'viaticos_qty'];
+            $before = $trip->only($keys);
+            $trip->update(array_intersect_key($data, array_flip($keys)));
+            Audit::record($trip, 'viaje_comercial', ['before' => $before, 'after' => $trip->only($keys)]);
         });
     }
 

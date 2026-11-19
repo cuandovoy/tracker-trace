@@ -28,6 +28,7 @@ export default function Fleet({
       <FilterBar
         filters={filters}
         archive
+        searchPlaceholder="Buscar por matrícula, modelo o chofer…"
         statusOptions={[
           { value: 'available', label: 'Disponibles' },
           { value: 'on_route', label: 'En ruta' },
@@ -42,7 +43,6 @@ export default function Fleet({
         <>
           <div className="truck-grid">
             {trucks.data.map((t) => {
-              const principal = t.current_assignments?.find((a) => a.principal);
               return (
                 <Link href={`/camiones/${t.id}`} key={t.id} className="truck-card">
                   <div className="truck-card-top">
@@ -72,7 +72,7 @@ export default function Fleet({
                   </div>
                   <div className="truck-card-bottom">
                     <UserRound size={17} />
-                    <span>{principal?.driver.name ?? 'Sin titular asignado'}</span>
+                    <span>{t.current_assignment?.driver.name ?? 'Sin chofer asignado'}</span>
                     <ArrowRight size={18} />
                   </div>
                 </Link>

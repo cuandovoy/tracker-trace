@@ -35,7 +35,7 @@ export type Truck = {
   next_service: string | null;
   archived_at: string | null;
   on_route?: boolean;
-  current_assignments?: Assignment[];
+  current_assignment?: Assignment | null;
 };
 export type Driver = {
   id: number;
@@ -50,7 +50,6 @@ export type Driver = {
 };
 export type Assignment = {
   id: number;
-  principal: boolean;
   started_at: string;
   ended_at: string | null;
   truck: Truck;
@@ -75,6 +74,11 @@ export type Trip = {
   tons: string;
   planned_km: string;
   actual_km: string | null;
+  value_amount: string | null;
+  collected: boolean;
+  viaticos_qty: number;
+  commission_rate: string;
+  viatico_unit_amount: string;
   notes: string | null;
   status: TripStatus;
   historical: boolean;
@@ -146,6 +150,9 @@ export type TripExpense = {
 export const expenseCategories: Record<string, string> = {
   combustible: 'Combustible',
   peajes: 'Peajes',
-  viaticos: 'Viáticos',
   otros: 'Otros',
+};
+export const expenseCategoryLabels: Record<string, string> = {
+  ...expenseCategories,
+  viaticos: 'Viáticos',
 };

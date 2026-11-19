@@ -9,7 +9,9 @@ class TripExpense extends Model
 {
     use BelongsToCompany;
 
-    public const CATEGORIES = ['combustible' => 'Combustible', 'peajes' => 'Peajes', 'viaticos' => 'Viáticos', 'otros' => 'Otros'];
+    public const CATEGORIES = ['combustible' => 'Combustible', 'peajes' => 'Peajes', 'otros' => 'Otros'];
+
+    public const LABELS = [...self::CATEGORIES, 'viaticos' => 'Viáticos'];
 
     protected $fillable = ['date', 'category', 'description', 'amount', 'currency'];
 

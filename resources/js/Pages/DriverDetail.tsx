@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { Download } from 'lucide-react';
+import { useState } from 'react';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import {
   Layout,
   Back,
@@ -19,13 +20,16 @@ export default function DriverDetail({
   totals,
   filters,
   trucks,
+  currentMonth,
 }: {
   driver: Driver;
   trips: PageData<Trip>;
   totals: Totals;
   filters: Filters;
   trucks: { id: number; plate: string }[];
+  currentMonth: string;
 }) {
+  const [month, setMonth] = useState(currentMonth);
   const query = new URLSearchParams(filters);
   query.delete('page');
   return (
@@ -52,14 +56,6 @@ export default function DriverDetail({
             { label: 'Teléfono', value: d.phone || 'Sin registrar' },
             { label: 'Ingreso', value: date(d.hired_on) },
             { label: 'Camión habitual', value: d.current_assignment?.truck.plate ?? 'Sin asignar' },
-            {
-              label: 'Asignación',
-              value: d.current_assignment
-                ? d.current_assignment.principal
-                  ? 'Titular'
-                  : 'Suplente'
-                : 'Sin asignar',
-            },
           ]}
         />
       </div>
@@ -72,7 +68,6 @@ export default function DriverDetail({
             submit="Guardar asignación"
             initial={{
               truck_id: String(d.current_assignment?.truck.id ?? ''),
-              principal: d.current_assignment?.principal ?? false,
             }}
             fields={[
               {
@@ -84,11 +79,39 @@ export default function DriverDetail({
                 ],
                 hint: 'Dejá sin seleccionar para finalizar la asignación actual.',
               },
-              { name: 'principal', label: 'Es el chofer titular de esta unidad', type: 'checkbox' },
             ]}
           />
         </Section>
       )}
+      <Section
+        title="Liquidación mensual"
+        actions={
+          <>
+            <a href={`/choferes/${d.id}/liquidacion/pdf?month=${month}`} className="btn quiet">
+              <Download size={17} />
+              PDF
+            </a>
+            <a href={`/choferes/${d.id}/liquidacion/csv?month=${month}`} className="btn quiet">
+              <FileSpreadsheet size={17} />
+              Excel (CSV)
+            </a>
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="settlement-month">Mes a liquidar</label>
+          <input
+            id="settlement-month"
+            type="month"
+            value={month}
+            onChange={(e) => e.target.value && setMonth(e.target.value)}
+          />
+        </div>
+        <p className="report-note">
+          Incluye todos los viajes del mes, cualquiera sea su estado. Total a pagar = comisión +
+          viáticos.
+        </p>
+      </Section>
       <Section
         title="Planilla de viajes"
         actions={
@@ -110,9 +133,7 @@ export default function DriverDetail({
           <div className="history-list">
             {d.assignments.map((a) => (
               <div key={a.id}>
-                <strong>
-                  {a.truck.plate} · {a.principal ? 'Titular' : 'Suplente'}
-                </strong>
+                <strong>{a.truck.plate}</strong>
                 <span>
                   {date(a.started_at)} — {a.ended_at ? date(a.ended_at) : 'Actual'}
                 </span>

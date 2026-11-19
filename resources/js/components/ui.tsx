@@ -263,12 +263,14 @@ export function FilterBar({
   statusOptions,
   extra = [],
   archive = false,
+  searchPlaceholder = 'Buscar…',
 }: {
   filters: Filters;
   period?: boolean;
   statusOptions?: Option[];
   extra?: { name: string; label: string; options: Option[] }[];
   archive?: boolean;
+  searchPlaceholder?: string;
 }) {
   const currentPath = usePage().url.split('?')[0];
   const path = currentPath.startsWith('/destinos') ? '/clientes' : currentPath;
@@ -289,7 +291,12 @@ export function FilterBar({
       <label className="search-field">
         <span className="sr-only">Buscar</span>
         <Search size={18} />
-        <input name="q" defaultValue={filters.q ?? ''} placeholder="Buscar…" maxLength={100} />
+        <input
+          name="q"
+          defaultValue={filters.q ?? ''}
+          placeholder={searchPlaceholder}
+          maxLength={100}
+        />
       </label>
       {statusOptions && (
         <label>
