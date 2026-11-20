@@ -77,7 +77,7 @@ export default function TripDetail({
               value: <Link href={`/choferes/${t.driver_id}`}>{t.driver.name}</Link>,
             },
             { label: 'Cliente', value: t.customer_name || 'Sin cliente asociado' },
-            { label: 'Carga', value: `${t.cargo} · ${number(t.tons)} t` },
+            { label: 'Carga', value: t.tons === null ? t.cargo : `${t.cargo} · ${number(t.tons)} t` },
             { label: 'Distancia prevista', value: `${number(t.planned_km)} km` },
             {
               label: 'Distancia realizada',
