@@ -136,4 +136,159 @@ class TripCommercialTest extends TestCase
         $this->get('/clientes')->assertForbidden();
         $this->post('/clientes', ['name' => 'No autorizado'])->assertForbidden();
     }
+
+    public function test_trip_stores_commercial_fields_and_snapshots_from_config(): void
+    {
+        $this->operator();
+        $trip = $this->trip(['value_amount' => '1000', 'collected' => true, 'viaticos_qty' => 2]);
+        $this->assertSame('1000.00', $trip->value_amount);
+        $this->assertTrue($trip->collected);
+        $this->assertSame(2, $trip->viaticos_qty);
+        $this->assertSame('8.00', $trip->commission_rate);
+        $this->assertSame('800.00', $trip->viatico_unit_amount);
+        $defaults = $this->trip();
+        $this->assertNull($defaults->value_amount);
+        $this->assertFalse($defaults->collected);
+        $this->assertSame(0, $defaults->viaticos_qty);
+    }
+
+    public function test_config_change_keeps_old_snapshots_and_new_trips_get_new_values(): void
+    {
+        $this->operator();
+        $old = $this->trip();
+        config(['fleet.commission_rate' => '10.00', 'fleet.viatico_unit_amount' => '1000.00']);
+        $new = $this->trip();
+        $this->put('/viajes/'.$old->id, ['truck_id' => $old->truck_id, 'driver_id' => $old->driver_id, 'date' => '2026-10-13', 'origin' => 'Montevideo', 'destination' => 'Rivera', 'cargo' => 'Granos', 'tons' => 10, 'planned_km' => 500, 'commission_rate' => '50.00'])->assertSessionHasNoErrors();
+        $this->assertSame('8.00', $old->fresh()->commission_rate);
+        $this->assertSame('800.00', $old->fresh()->viatico_unit_amount);
+        $this->assertSame('10.00', $new->commission_rate);
+        $this->assertSame('1000.00', $new->viatico_unit_amount);
+    }
+
+    public function test_snapshots_are_not_mass_assignable_through_the_request(): void
+    {
+        $this->operator();
+        $trip = $this->trip(['commission_rate' => '99.00', 'viatico_unit_amount' => '1.00']);
+        $this->assertSame('8.00', $trip->commission_rate);
+        $this->assertSame('800.00', $trip->viatico_unit_amount);
+    }
+
+    public function test_trip_created_directly_gets_snapshots(): void
+    {
+        $user = $this->operator();
+        $trip = Trip::create(['truck_id' => Truck::factory()->create()->id, 'driver_id' => Driver::factory()->create()->id, 'date' => '2026-10-12', 'origin' => 'A', 'destination' => 'B', 'cargo' => 'C', 'tons' => 1, 'planned_km' => 1, 'status' => 'programado', 'created_by' => $user->id]);
+        $this->assertSame('8.00', $trip->fresh()->commission_rate);
+        $this->assertSame('800.00', $trip->fresh()->viatico_unit_amount);
+    }
+
+    public function test_commercial_fields_are_validated(): void
+    {
+        $this->operator();
+        $base = ['truck_id' => Truck::factory()->create()->id, 'driver_id' => Driver::factory()->create()->id, 'date' => '2026-10-12', 'origin' => 'A', 'destination' => 'B', 'cargo' => 'C', 'tons' => 1, 'planned_km' => 1];
+        $this->post('/viajes', [...$base, 'value_amount' => '-5'])->assertSessionHasErrors('value_amount');
+        $this->post('/viajes', [...$base, 'value_amount' => '10.123'])->assertSessionHasErrors('value_amount');
+        $this->post('/viajes', [...$base, 'value_amount' => '10000000000'])->assertSessionHasErrors('value_amount');
+        $this->post('/viajes', [...$base, 'viaticos_qty' => '-1'])->assertSessionHasErrors('viaticos_qty');
+        $this->post('/viajes', [...$base, 'viaticos_qty' => 'abc'])->assertSessionHasErrors('viaticos_qty');
+        $this->post('/viajes', [...$base, 'viaticos_qty' => 1000])->assertSessionHasErrors('viaticos_qty');
+        $this->assertSame(0, Trip::count());
+    }
+
+    public function test_driver_defaults_to_the_trucks_current_driver_when_omitted(): void
+    {
+        $this->operator();
+        $truck = Truck::factory()->create();
+        $driver = Driver::factory()->create();
+        $other = Driver::factory()->create();
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id])->assertSessionHasNoErrors();
+        $data = ['truck_id' => $truck->id, 'date' => '2026-10-12', 'origin' => 'A', 'destination' => 'B', 'cargo' => 'C', 'tons' => 1, 'planned_km' => 1];
+        $this->post('/viajes', $data)->assertSessionHasNoErrors();
+        $this->assertSame($driver->id, Trip::latest('id')->first()->driver_id);
+        $this->post('/viajes', [...$data, 'driver_id' => $other->id])->assertSessionHasNoErrors();
+        $this->assertSame($other->id, Trip::latest('id')->first()->driver_id);
+        $archived = Driver::factory()->create(['archived_at' => now()]);
+        $this->post('/viajes', [...$data, 'driver_id' => $archived->id])->assertSessionHasErrors('driver_id');
+        $this->post('/viajes', [...$data, 'truck_id' => Truck::factory()->create()->id])->assertSessionHasErrors('driver_id');
+    }
+
+    public function test_commercial_fields_are_editable_on_closed_trips_with_audit(): void
+    {
+        $this->operator();
+        $trip = $this->trip(['value_amount' => '100']);
+        $trip->update(['status' => 'completado', 'actual_km' => 500]);
+        $this->put('/viajes/'.$trip->id.'/comercial', ['value_amount' => '1500', 'collected' => true, 'viaticos_qty' => 2])->assertSessionHasNoErrors();
+        $fresh = $trip->fresh();
+        $this->assertSame('1500.00', $fresh->value_amount);
+        $this->assertTrue($fresh->collected);
+        $this->assertSame(2, $fresh->viaticos_qty);
+        $this->assertSame('8.00', $fresh->commission_rate);
+        $event = AuditEvent::where('subject_id', $trip->id)->where('action', 'viaje_comercial')->firstOrFail();
+        $this->assertEqualsCanonicalizing(['value_amount', 'collected', 'viaticos_qty'], array_keys($event->data['after']));
+        $this->assertEquals(100, $event->data['before']['value_amount']);
+        $cancelled = $this->trip();
+        $cancelled->update(['status' => 'anulado']);
+        $this->put('/viajes/'.$cancelled->id.'/comercial', ['value_amount' => null, 'collected' => false, 'viaticos_qty' => 3])->assertSessionHasNoErrors();
+        $this->assertSame(3, $cancelled->fresh()->viaticos_qty);
+        $this->put('/viajes/'.$trip->id.'/comercial', ['value_amount' => '-1', 'collected' => false, 'viaticos_qty' => 0])->assertSessionHasErrors('value_amount');
+        $this->assertSame('1500.00', $trip->fresh()->value_amount);
+    }
+
+    public function test_route_edit_on_completed_trip_is_still_rejected(): void
+    {
+        $this->operator();
+        $trip = $this->trip();
+        $trip->update(['status' => 'completado', 'actual_km' => 500]);
+        $this->put('/viajes/'.$trip->id, ['truck_id' => $trip->truck_id, 'driver_id' => $trip->driver_id, 'date' => '2026-10-12', 'origin' => 'Otro', 'destination' => 'Rivera', 'cargo' => 'Granos', 'tons' => 10, 'planned_km' => 500])->assertSessionHasErrors('operation');
+        $this->assertSame('Montevideo', $trip->fresh()->origin);
+    }
+
+    public function test_commercial_update_respects_tenancy_and_authentication(): void
+    {
+        $this->operator();
+        $trip = $this->trip();
+        $this->operator();
+        $this->put('/viajes/'.$trip->id.'/comercial', ['collected' => true, 'viaticos_qty' => 1])->assertNotFound();
+        auth()->logout();
+        $this->put('/viajes/'.$trip->id.'/comercial', ['collected' => true, 'viaticos_qty' => 1])->assertRedirect('/login');
+    }
+
+    public function test_viaticos_category_is_rejected_for_new_expenses_but_legacy_rows_remain(): void
+    {
+        $this->operator();
+        $trip = $this->trip();
+        foreach (['combustible', 'peajes', 'otros'] as $category) {
+            $this->post('/viajes/'.$trip->id.'/gastos', $this->expense(['category' => $category]))->assertSessionHasNoErrors();
+        }
+        $this->post('/viajes/'.$trip->id.'/gastos', $this->expense(['category' => 'viaticos']))->assertSessionHasErrors('category');
+        $expense = TripExpense::firstOrFail();
+        $this->put('/viajes/'.$trip->id.'/gastos/'.$expense->id, $this->expense(['category' => 'viaticos']))->assertSessionHasErrors('category');
+        $legacy = new TripExpense(['date' => '2026-10-12', 'category' => 'viaticos', 'description' => 'Viático', 'amount' => '800.00', 'currency' => 'UYU']);
+        $legacy->trip_id = $trip->id;
+        $legacy->created_by = auth()->id();
+        $legacy->save();
+        $this->get('/viajes/'.$trip->id)->assertInertia(fn (Assert $p) => $p->has('trip.expenses', 4)->where('expenseTotals.0.total', '1176.05'));
+    }
+
+    public function test_legacy_viaticos_expense_can_be_edited_keeping_its_category(): void
+    {
+        $this->operator();
+        $trip = $this->trip();
+        $legacy = new TripExpense(['date' => '2026-10-12', 'category' => 'viaticos', 'description' => 'Viático', 'amount' => '800.00', 'currency' => 'UYU']);
+        $legacy->trip_id = $trip->id;
+        $legacy->created_by = auth()->id();
+        $legacy->save();
+
+        $this->put('/viajes/'.$trip->id.'/gastos/'.$legacy->id, $this->expense(['category' => 'viaticos', 'description' => 'Viático corregido']))->assertSessionHasNoErrors();
+        $this->assertSame('Viático corregido', $legacy->fresh()->description);
+        $this->assertSame('viaticos', $legacy->fresh()->category);
+        $this->put('/viajes/'.$trip->id.'/gastos/'.$legacy->id, $this->expense(['category' => 'peajes']))->assertSessionHasNoErrors();
+        $this->post('/viajes/'.$trip->id.'/gastos', $this->expense(['category' => 'viaticos']))->assertSessionHasErrors('category');
+    }
+
+    public function test_trip_detail_exposes_commercial_data_and_computed_viaticos_amount(): void
+    {
+        $this->operator();
+        $trip = $this->trip(['value_amount' => '1250.5', 'collected' => true, 'viaticos_qty' => 2]);
+        $this->get('/viajes/'.$trip->id)->assertInertia(fn (Assert $p) => $p->where('trip.value_amount', '1250.50')->where('trip.collected', true)->where('trip.viaticos_qty', 2)->where('commercial.viaticos_amount', '1.600,00'));
+    }
 }

@@ -18,9 +18,9 @@ class TruckController extends Controller
     {
         Gate::authorize('viewAny', Truck::class);
         $filters = $request->validated();
-        $query = Truck::with(['currentAssignments.driver'])->withExists(['trips as on_route' => fn ($q) => $q->where('status', 'en_viaje')])
+        $query = Truck::with(['currentAssignment.driver'])->withExists(['trips as on_route' => fn ($q) => $q->where('status', 'en_viaje')])
             ->when($request->boolean('archived'), fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
-            ->when($filters['q'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q->where('plate', 'like', "%$v%")->orWhere('brand', 'like', "%$v%")->orWhere('model', 'like', "%$v%")));
+            ->when($filters['q'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q->where('plate', 'like', "%$v%")->orWhere('brand', 'like', "%$v%")->orWhere('model', 'like', "%$v%")->orWhereHas('currentAssignment.driver', fn ($q) => $q->where('name', 'like', "%$v%"))));
         match ($filters['status'] ?? '') {
             'maintenance' => $query->where('maintenance', true),
             'on_route' => $query->whereHas('trips', fn ($q) => $q->where('status', 'en_viaje')),
@@ -53,7 +53,7 @@ class TruckController extends Controller
         Gate::authorize('view', $truck);
         $query = $reports->query($request->validated(), truckId: $truck->id);
 
-        return Inertia::render('TruckDetail', ['truck' => $truck->load('currentAssignments.driver')->loadExists(['trips as on_route' => fn ($q) => $q->where('status', 'en_viaje')]), 'trips' => $query->orderByDesc('date')->orderByDesc('id')->paginate(15)->withQueryString(), 'totals' => $reports->totals($query), 'filters' => $request->validated()]);
+        return Inertia::render('TruckDetail', ['truck' => $truck->load('currentAssignment.driver')->loadExists(['trips as on_route' => fn ($q) => $q->where('status', 'en_viaje')]), 'trips' => $query->orderByDesc('date')->orderByDesc('id')->paginate(15)->withQueryString(), 'totals' => $reports->totals($query), 'filters' => $request->validated()]);
     }
 
     public function edit(Truck $truck): Response

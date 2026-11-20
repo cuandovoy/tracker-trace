@@ -29,7 +29,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/choferes/{driver}/archivo', [DriverController::class, 'archive'])->name('drivers.archive');
     Route::post('/choferes/{driver}/asignacion', [DriverController::class, 'assign'])->name('drivers.assign');
     Route::get('/choferes/{driver}/pdf', [DriverController::class, 'pdf'])->middleware('throttle:20,1')->name('drivers.pdf');
-    Route::get('/viajes/excel', [TripController::class, 'excel'])->middleware('throttle:20,1')->name('trips.excel');
+    Route::get('/choferes/{driver}/liquidacion/pdf', [DriverController::class, 'settlementPdf'])->middleware('throttle:20,1')->name('drivers.settlement.pdf');
+    Route::get('/choferes/{driver}/liquidacion/csv', [DriverController::class, 'settlementCsv'])->middleware('throttle:20,1')->name('drivers.settlement.csv');
     foreach (['clientes', 'destinos'] as $kind) {
         Route::get("/$kind", [DirectoryController::class, 'index'])->defaults('kind', $kind)->name($kind.'.index');
         Route::get("/$kind/create", [DirectoryController::class, 'create'])->defaults('kind', $kind)->name($kind.'.create');
@@ -43,6 +44,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/viajes/{trip}/gastos/{expense}', [TripExpenseController::class, 'update']);
     Route::delete('/viajes/{trip}/gastos/{expense}', [TripExpenseController::class, 'destroy']);
     Route::resource('viajes', TripController::class)->parameters(['viajes' => 'trip'])->except('destroy');
+    Route::put('/viajes/{trip}/comercial', [TripController::class, 'commercial'])->name('trips.commercial');
     Route::post('/viajes/{trip}/estado', [TripController::class, 'transition'])->name('trips.transition');
     Route::get('/ajustes', [CompanyController::class, 'settings'])->name('settings');
     Route::put('/ajustes', [CompanyController::class, 'saveSettings']);

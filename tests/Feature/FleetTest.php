@@ -9,8 +9,10 @@ use App\Models\Driver;
 use App\Models\Trip;
 use App\Models\Truck;
 use App\Models\User;
+use App\Support\TripSpreadsheet;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -102,23 +104,109 @@ class FleetTest extends TestCase
         $this->assertNull(Truck::find($data['truck_id'])->archived_at);
     }
 
-    public function test_assignments_keep_history_and_only_one_principal(): void
+    public function test_assignments_keep_history_and_trucks_have_a_single_driver(): void
     {
         $this->operator();
         $truck = Truck::factory()->create();
         $second = Truck::factory()->create();
         $driver = Driver::factory()->create();
         $other = Driver::factory()->create();
-        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id, 'principal' => true])->assertSessionHasNoErrors();
-        $this->post('/choferes/'.$other->id.'/asignacion', ['truck_id' => $truck->id, 'principal' => true])->assertSessionHasErrors('truck_id');
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id])->assertSessionHasNoErrors();
         $this->post('/viajes', $this->payload($truck, $driver));
         $trip = Trip::first();
-        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $second->id, 'principal' => true])->assertSessionHasNoErrors();
-        $this->assertSame($truck->id, $trip->fresh()->truck_id);
-        $this->assertSame(2, Assignment::where('driver_id', $driver->id)->count());
-        $this->assertSame(1, Assignment::where('driver_id', $driver->id)->whereNull('ended_at')->count());
-        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => null, 'principal' => false])->assertSessionHasNoErrors();
-        $this->assertSame(0, Assignment::where('driver_id', $driver->id)->whereNull('ended_at')->count());
+        $this->post('/choferes/'.$other->id.'/asignacion', ['truck_id' => $truck->id])->assertSessionHasNoErrors();
+        $this->assertNotNull(Assignment::where('driver_id', $driver->id)->firstOrFail()->ended_at);
+        $open = Assignment::where('truck_id', $truck->id)->whereNull('ended_at')->get();
+        $this->assertCount(1, $open);
+        $this->assertSame($other->id, $open->first()->driver_id);
+        $this->assertSame($driver->id, $trip->fresh()->driver_id);
+        $this->post('/choferes/'.$other->id.'/asignacion', ['truck_id' => $second->id])->assertSessionHasNoErrors();
+        $this->assertSame(0, Assignment::where('truck_id', $truck->id)->whereNull('ended_at')->count());
+        $this->assertSame(1, Assignment::where('driver_id', $other->id)->whereNull('ended_at')->count());
+        $this->assertSame(2, Assignment::where('driver_id', $other->id)->count());
+        $this->post('/choferes/'.$other->id.'/asignacion', ['truck_id' => null])->assertSessionHasNoErrors();
+        $this->assertSame(0, Assignment::where('driver_id', $other->id)->whereNull('ended_at')->count());
+        $this->assertSame(0, Assignment::where('truck_id', $second->id)->whereNull('ended_at')->count());
+    }
+
+    public function test_assigning_the_same_driver_to_the_same_truck_does_not_duplicate(): void
+    {
+        $this->operator();
+        $truck = Truck::factory()->create();
+        $driver = Driver::factory()->create();
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id])->assertSessionHasNoErrors();
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id])->assertSessionHasNoErrors();
+        $this->assertSame(1, Assignment::where('truck_id', $truck->id)->count());
+        $this->assertSame(1, Assignment::where('truck_id', $truck->id)->whereNull('ended_at')->count());
+    }
+
+    public function test_assignment_rejects_other_company_driver_and_truck(): void
+    {
+        $this->operator();
+        $foreignTruck = Truck::factory()->create();
+        $foreignDriver = Driver::factory()->create();
+        $this->operator();
+        $truck = Truck::factory()->create();
+        $driver = Driver::factory()->create();
+        $this->post('/choferes/'.$foreignDriver->id.'/asignacion', ['truck_id' => $truck->id])->assertNotFound();
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $foreignTruck->id])->assertSessionHasErrors('truck_id');
+        $this->assertSame(0, Assignment::count());
+    }
+
+    public function test_truck_search_matches_current_driver_name_only(): void
+    {
+        $this->operator();
+        $truck = Truck::factory()->create(['plate' => 'AAA 0001']);
+        $idle = Truck::factory()->create(['plate' => 'BBB 0002']);
+        $driver = Driver::factory()->create(['name' => 'Juan Pérez']);
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id]);
+        $this->get('/camiones?q=perez')->assertInertia(fn (Assert $p) => $p->has('trucks.data', 1)->where('trucks.data.0.id', $truck->id)->where('trucks.data.0.current_assignment.driver.name', 'Juan Pérez'));
+        $this->get('/camiones?q=JUAN')->assertInertia(fn (Assert $p) => $p->has('trucks.data', 1));
+        $this->get('/camiones?q=BBB')->assertInertia(fn (Assert $p) => $p->has('trucks.data', 1)->where('trucks.data.0.id', $idle->id)->where('trucks.data.0.current_assignment', null));
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => null]);
+        $this->get('/camiones?q=Juan')->assertInertia(fn (Assert $p) => $p->has('trucks.data', 0));
+    }
+
+    public function test_truck_search_never_matches_other_company_driver_names(): void
+    {
+        $this->operator();
+        $foreignTruck = Truck::factory()->create(['plate' => 'ZZZ 9999']);
+        $foreignDriver = Driver::factory()->create(['name' => 'Secreto Ajeno']);
+        $this->post('/choferes/'.$foreignDriver->id.'/asignacion', ['truck_id' => $foreignTruck->id]);
+        $this->operator();
+        Truck::factory()->create();
+        $this->get('/camiones?q=Secreto')->assertInertia(fn (Assert $p) => $p->has('trucks.data', 0));
+    }
+
+    public function test_truck_index_loads_current_driver_without_n_plus_one(): void
+    {
+        $this->operator();
+        foreach (range(1, 4) as $i) {
+            $truck = Truck::factory()->create();
+            $this->post('/choferes/'.Driver::factory()->create()->id.'/asignacion', ['truck_id' => $truck->id]);
+        }
+        \DB::enableQueryLog();
+        $this->get('/camiones')->assertOk();
+        $assignmentQueries = collect(\DB::getQueryLog())->filter(fn ($q) => str_contains($q['query'], 'from `assignments`'))->count();
+        $this->assertSame(1, $assignmentQueries);
+    }
+
+    public function test_trip_options_expose_each_trucks_current_driver(): void
+    {
+        $this->operator();
+        $truck = Truck::factory()->create();
+        $idle = Truck::factory()->create();
+        $driver = Driver::factory()->create();
+        $this->post('/choferes/'.$driver->id.'/asignacion', ['truck_id' => $truck->id]);
+        $this->get('/viajes/create')->assertInertia(fn (Assert $p) => $p
+            ->where('trucks', fn ($trucks) => collect($trucks)->firstWhere('id', $truck->id)['current_assignment']['driver_id'] === $driver->id
+                && collect($trucks)->firstWhere('id', $idle->id)['current_assignment'] === null));
+    }
+
+    public function test_dead_trip_spreadsheet_route_and_class_are_gone(): void
+    {
+        $this->assertFalse(Route::has('trips.excel'));
+        $this->assertFalse(class_exists(TripSpreadsheet::class));
     }
 
     public function test_report_pagination_and_pdf_use_completed_totals_only(): void

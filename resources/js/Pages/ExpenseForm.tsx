@@ -1,5 +1,5 @@
 import { Layout, Editor, Back } from '../components/ui';
-import { type Trip, type TripExpense, expenseCategories } from '../types';
+import { type Trip, type TripExpense, expenseCategories, expenseCategoryLabels } from '../types';
 export default function ExpenseForm({
   trip,
   expense: e,
@@ -25,7 +25,7 @@ export default function ExpenseForm({
             name: 'category',
             label: 'Categoría',
             required: true,
-            options: Object.entries(expenseCategories).map(([value, label]) => ({ value, label })),
+            options: Object.entries(e?.category === 'viaticos' ? expenseCategoryLabels : expenseCategories).map(([value, label]) => ({ value, label })),
           },
           { name: 'description', label: 'Detalle del gasto', required: true, wide: true },
           {

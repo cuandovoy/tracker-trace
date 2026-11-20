@@ -11,25 +11,28 @@ use Illuminate\Validation\ValidationException;
 
 class ManageAssignment
 {
-    public function assign(Driver $driver, ?int $truckId, bool $principal): void
+    public function assign(Driver $driver, ?int $truckId): void
     {
-        app(CompanyTransaction::class)->run(function () use ($driver, $truckId, $principal) {
+        app(CompanyTransaction::class)->run(function () use ($driver, $truckId) {
             $driver->refresh();
             if ($driver->archived_at) {
                 throw ValidationException::withMessages(['operation' => 'El chofer está archivado.']);
             }
             if ($truckId) {
                 Truck::whereNull('archived_at')->findOrFail($truckId);
-                if ($principal && Assignment::where('truck_id', $truckId)->where('driver_id', '!=', $driver->id)->where('principal', true)->whereNull('ended_at')->exists()) {
-                    throw ValidationException::withMessages(['truck_id' => 'Este camión ya tiene un titular. Finalizá esa asignación primero.']);
+                if (Assignment::where('truck_id', $truckId)->where('driver_id', $driver->id)->whereNull('ended_at')->exists()) {
+                    return;
                 }
             }
-            foreach ($driver->assignments()->whereNull('ended_at')->get() as $old) {
+            $open = Assignment::whereNull('ended_at')->where(function ($query) use ($driver, $truckId) {
+                $query->where('driver_id', $driver->id)->when($truckId, fn ($q) => $q->orWhere('truck_id', $truckId));
+            })->get();
+            foreach ($open as $old) {
                 $old->update(['ended_at' => now(), 'ended_by' => auth()->id()]);
                 Audit::record($old, 'asignacion_finalizada');
             }
             if ($truckId) {
-                $assignment = Assignment::create(['truck_id' => $truckId, 'driver_id' => $driver->id, 'principal' => $principal, 'started_at' => now(), 'created_by' => auth()->id()]);
+                $assignment = Assignment::create(['truck_id' => $truckId, 'driver_id' => $driver->id, 'started_at' => now(), 'created_by' => auth()->id()]);
                 Audit::record($assignment, 'asignacion_creada', $assignment->getAttributes());
             }
         });

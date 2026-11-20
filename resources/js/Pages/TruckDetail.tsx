@@ -64,20 +64,17 @@ export default function TruckDetail({
           ]}
         />
       </div>
-      <Section title="Choferes asignados">
-        {t.current_assignments?.length ? (
+      <Section title="Chofer asignado">
+        {t.current_assignment ? (
           <div className="people-list">
-            {t.current_assignments.map((a) => (
-              <Link key={a.id} href={`/choferes/${a.driver.id}`}>
-                <span className="avatar">{a.driver.name[0]}</span>
-                <strong>{a.driver.name}</strong>
-                <Badge>{a.principal ? 'Titular' : 'Suplente'}</Badge>
-              </Link>
-            ))}
+            <Link href={`/choferes/${t.current_assignment.driver.id}`}>
+              <span className="avatar">{t.current_assignment.driver.name[0]}</span>
+              <strong>{t.current_assignment.driver.name}</strong>
+            </Link>
           </div>
         ) : (
           <Empty
-            title="Sin choferes asignados"
+            title="Sin chofer asignado"
             text="Podés asignar esta unidad desde la ficha de un chofer."
           />
         )}

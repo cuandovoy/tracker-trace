@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\ManageTrip;
 use App\Http\Requests\FilterRequest;
+use App\Http\Requests\TripCommercialRequest;
 use App\Http\Requests\TripRequest;
 use App\Models\AuditEvent;
 use App\Models\Customer;
@@ -11,6 +12,7 @@ use App\Models\Driver;
 use App\Models\Location;
 use App\Models\Trip;
 use App\Models\Truck;
+use App\Support\Money;
 use App\Support\TripReport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,7 @@ class TripController extends Controller
 {
     private function options(): array
     {
-        return ['customers' => Customer::orderBy('name')->get(['id', 'name']), 'locations' => Location::orderBy('name')->get(['id', 'customer_id', 'name', 'address']), 'trucks' => Truck::whereNull('archived_at')->orderBy('plate')->get(['id', 'plate', 'capacity_tons']), 'drivers' => Driver::whereNull('archived_at')->orderBy('name')->get(['id', 'name'])];
+        return ['customers' => Customer::orderBy('name')->get(['id', 'name']), 'locations' => Location::orderBy('name')->get(['id', 'customer_id', 'name', 'address']), 'trucks' => Truck::whereNull('archived_at')->with('currentAssignment:id,truck_id,driver_id')->orderBy('plate')->get(['id', 'plate', 'capacity_tons']), 'drivers' => Driver::whereNull('archived_at')->orderBy('name')->get(['id', 'name'])];
     }
 
     public function index(FilterRequest $request, TripReport $reports): Response
@@ -52,7 +54,7 @@ class TripController extends Controller
     {
         Gate::authorize('view', $trip);
 
-        return Inertia::render('TripDetail', ['trip' => $trip->load('truck', 'driver', 'expenses'), 'expenseTotals' => $trip->expenses()->selectRaw('currency, SUM(amount) as total')->groupBy('currency')->orderBy('currency')->get(), 'events' => AuditEvent::with('user:id,name')->where('subject_type', 'trips')->where('subject_id', $trip->id)->orderByDesc('id')->get()]);
+        return Inertia::render('TripDetail', ['trip' => $trip->load('truck', 'driver', 'expenses'), 'commercial' => ['viaticos_amount' => Money::format($trip->viaticos_qty * Money::toCents($trip->viatico_unit_amount))], 'expenseTotals' => $trip->expenses()->selectRaw('currency, SUM(amount) as total')->groupBy('currency')->orderBy('currency')->get(), 'events' => AuditEvent::with('user:id,name')->where('subject_type', 'trips')->where('subject_id', $trip->id)->orderByDesc('id')->get()]);
     }
 
     public function edit(Trip $trip): Response
@@ -69,6 +71,13 @@ class TripController extends Controller
         $action->save($request->validated(), $trip);
 
         return redirect('/viajes/'.$trip->id)->with('success', 'Viaje actualizado.');
+    }
+
+    public function commercial(TripCommercialRequest $request, Trip $trip, ManageTrip $action): RedirectResponse
+    {
+        $action->updateCommercial($trip, $request->validated());
+
+        return back()->with('success', 'Datos comerciales actualizados.');
     }
 
     public function transition(Request $request, Trip $trip, ManageTrip $action): RedirectResponse

@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Actions\ManageAssignment;
 use App\Actions\ManageFleet;
 use App\Http\Requests\DriverRequest;
+use App\Http\Requests\DriverSettlementRequest;
 use App\Http\Requests\FilterRequest;
 use App\Models\Driver;
 use App\Models\Truck;
+use App\Support\DriverSettlement;
+use App\Support\Money;
 use App\Support\TripReport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +19,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DriverController extends Controller
 {
@@ -64,6 +68,7 @@ class DriverController extends Controller
 
         return Inertia::render('DriverDetail', ['driver' => $driver->load(['currentAssignment.truck', 'assignments' => fn ($q) => $q->with('truck')->orderByDesc('id')->limit(30)]),
             'trips' => $query->orderByDesc('date')->orderByDesc('id')->paginate(15)->withQueryString(), 'totals' => $reports->totals($query), 'filters' => $request->validated(),
+            'currentMonth' => now($request->user()->company->timezone)->format('Y-m'),
             'trucks' => Truck::whereNull('archived_at')->orderBy('plate')->get(['id', 'plate'])]);
     }
 
@@ -78,8 +83,8 @@ class DriverController extends Controller
     public function assign(Request $request, Driver $driver, ManageAssignment $action): RedirectResponse
     {
         Gate::authorize('update', $driver);
-        $data = $request->validate(['truck_id' => ['nullable', 'integer', Rule::exists('trucks', 'id')->where('company_id', $request->user()->company_id)->whereNull('archived_at')], 'principal' => 'required|boolean']);
-        $action->assign($driver, $data['truck_id'] ?? null, $data['principal']);
+        $data = $request->validate(['truck_id' => ['nullable', 'integer', Rule::exists('trucks', 'id')->where('company_id', $request->user()->company_id)->whereNull('archived_at')]]);
+        $action->assign($driver, $data['truck_id'] ?? null);
 
         return back()->with('success', 'Asignación actualizada.');
     }
@@ -91,5 +96,40 @@ class DriverController extends Controller
         $query = $reports->query($filters, $driver->id);
 
         return Pdf::loadView('reports.driver', ['company' => $request->user()->company, 'driver' => $driver, 'trips' => $query->orderBy('date')->orderBy('id')->get(), 'totals' => $reports->totals($query), 'filters' => $filters])->setPaper('a4', 'landscape')->download('viajes-chofer-'.$driver->id.'.pdf');
+    }
+
+    public function settlementPdf(DriverSettlementRequest $request, Driver $driver, DriverSettlement $settlement): \Illuminate\Http\Response
+    {
+        Gate::authorize('view', $driver);
+        $month = $request->month();
+
+        return Pdf::loadView('reports.driver-settlement', ['company' => $request->user()->company, ...$settlement->for($driver, $month)])
+            ->setPaper('a4', 'landscape')->download('liquidacion-'.$driver->id.'-'.$month->format('Y-m').'.pdf');
+    }
+
+    public function settlementCsv(DriverSettlementRequest $request, Driver $driver, DriverSettlement $settlement): StreamedResponse
+    {
+        Gate::authorize('view', $driver);
+        $month = $request->month();
+        $data = $settlement->for($driver, $month);
+        $totals = $data['totals'];
+        $rows = [['Fecha', 'Origen', 'Destino', 'Producto', 'Matrícula', 'Cliente', 'Viáticos', 'Facturado', 'Cobrado', 'Kilómetros', 'Estado']];
+        foreach ($data['rows'] as $row) {
+            $rows[] = [$row['date'], $row['origin'], $row['destination'], $row['cargo'], $row['plate'], $row['customer'], $row['viaticos_qty'],
+                $row['value'] === null ? '' : Money::csv($row['value']), $row['collected'] ? 'Sí' : 'No', $row['km'], $row['status']];
+        }
+        $rows[] = ['Total facturado', '', '', '', '', '', '', Money::csv($totals['value'])];
+        $rows[] = ['Comisión', '', '', '', '', '', '', Money::csv($totals['commission'])];
+        $rows[] = ['Viáticos ('.$totals['viaticos_qty'].')', '', '', '', '', '', '', Money::csv($totals['viaticos'])];
+        $rows[] = ['Total a pagar', '', '', '', '', '', '', Money::csv($totals['payable'])];
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            foreach ($rows as $row) {
+                fputcsv($out, array_map(fn ($cell) => is_string($cell) && preg_match('/^[=+\-@\t\r]/', $cell) ? "'".$cell : $cell, $row), ';', '"', '');
+            }
+            fclose($out);
+        }, 'liquidacion-'.$driver->id.'-'.$month->format('Y-m').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

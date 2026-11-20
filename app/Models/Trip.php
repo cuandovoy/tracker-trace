@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,11 +14,25 @@ class Trip extends Model
 
     const OPEN = ['programado', 'en_viaje'];
 
-    protected $fillable = ['customer_id', 'customer_name', 'origin_location_id', 'destination_location_id', 'truck_id', 'driver_id', 'date', 'origin', 'destination', 'cargo', 'tons', 'planned_km', 'actual_km', 'notes', 'status', 'historical', 'started_at', 'completed_at', 'cancellation_reason', 'created_by'];
+    protected $fillable = ['customer_id', 'customer_name', 'origin_location_id', 'destination_location_id', 'truck_id', 'driver_id', 'date', 'origin', 'destination', 'cargo', 'tons', 'planned_km', 'actual_km', 'notes', 'status', 'historical', 'started_at', 'completed_at', 'cancellation_reason', 'created_by', 'value_amount', 'collected', 'viaticos_qty'];
 
     protected function casts(): array
     {
-        return ['historical' => 'boolean', 'tons' => 'decimal:2', 'planned_km' => 'decimal:1', 'actual_km' => 'decimal:1'];
+        return ['historical' => 'boolean', 'tons' => 'decimal:2', 'planned_km' => 'decimal:1', 'actual_km' => 'decimal:1', 'value_amount' => 'decimal:2', 'collected' => 'boolean', 'viaticos_qty' => 'integer', 'commission_rate' => 'decimal:2', 'viatico_unit_amount' => 'decimal:2'];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Trip $trip) {
+            if ($trip->getAttribute('commission_rate') === null) {
+                Money::toBasisPoints((string) config('fleet.commission_rate'));
+                $trip->commission_rate = config('fleet.commission_rate');
+            }
+            if ($trip->getAttribute('viatico_unit_amount') === null) {
+                Money::toCents((string) config('fleet.viatico_unit_amount'));
+                $trip->viatico_unit_amount = config('fleet.viatico_unit_amount');
+            }
+        });
     }
 
     public function expenses(): HasMany
