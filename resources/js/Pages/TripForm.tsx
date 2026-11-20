@@ -66,7 +66,6 @@ export default function TripForm({
       type: 'number',
       min: 0,
       step: '0.01',
-      required: true,
     },
     {
       name: 'planned_km',

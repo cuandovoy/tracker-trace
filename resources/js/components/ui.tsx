@@ -401,7 +401,7 @@ export function TripsTable({ trips }: { trips: PageData<Trip> }) {
                 </td>
                 <td data-label="Carga">
                   {t.cargo}
-                  <small>{number(t.tons)} t</small>
+                  {t.tons !== null && <small>{number(t.tons)} t</small>}
                 </td>
                 <td data-label="Distancia" className="numeric">
                   {number(t.status === 'completado' ? (t.actual_km ?? 0) : t.planned_km)} km

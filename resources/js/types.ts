@@ -71,7 +71,7 @@ export type Trip = {
   origin: string;
   destination: string;
   cargo: string;
-  tons: string;
+  tons: string | null;
   planned_km: string;
   actual_km: string | null;
   value_amount: string | null;
