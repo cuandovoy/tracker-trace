@@ -31,7 +31,7 @@ class ManageTrip
                 throw ValidationException::withMessages(['driver_id' => 'Seleccioná un chofer o asigná uno al camión.']);
             }
             Driver::whereNull('archived_at')->findOrFail($data['driver_id']);
-            $this->require((float) $data['tons'] <= (float) $truck->capacity_tons, 'La carga supera la capacidad del camión.');
+            $this->require(! isset($data['tons']) || (float) $data['tons'] <= (float) $truck->capacity_tons, 'La carga supera la capacidad del camión.');
             $before = $trip?->getAttributes();
             if (array_key_exists('customer_id', $data)) {
                 $customerId = $data['customer_id'] ?: null;
@@ -85,7 +85,7 @@ class ManageTrip
                 $driver = Driver::findOrFail($trip->driver_id);
                 $this->require(! $truck->archived_at && ! $driver->archived_at, 'El camión o chofer está archivado.');
                 $this->require(! $truck->maintenance, 'El camión está en mantenimiento.');
-                $this->require((float) $trip->tons <= (float) $truck->capacity_tons, 'La carga supera la capacidad actual del camión.');
+                $this->require($trip->tons === null || (float) $trip->tons <= (float) $truck->capacity_tons, 'La carga supera la capacidad actual del camión.');
                 $this->require(! Trip::where('status', 'en_viaje')->where(fn ($q) => $q->where('truck_id', $truck->id)->orWhere('driver_id', $driver->id))->exists(), 'El camión o chofer ya tiene un viaje en curso.');
                 $trip->update(['status' => $target, 'started_at' => now()]);
             } elseif ($target === 'completado') {
